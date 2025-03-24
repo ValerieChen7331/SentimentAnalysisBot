@@ -33,7 +33,7 @@ class LLMAPI:
         # 定義內部支援的模型清單 (字典)
         llm_model_names = {
             # "Taiwan-llama3-f16": "cwchang/llama-3-taiwan-8b-instruct-dpo:f16",
-            "Taiwan-llama3-f16": "cwchang/llama-3-taiwan-8b-instruct:f16",
+            "Taiwan-Llama3-16f": "cwchang/llama-3-taiwan-8b-instruct:f16",
             "Gemma2:27b": "gemma2:27b-instruct-q5_0",
         }
 

@@ -1,16 +1,13 @@
 import json
-from typing import List
-from on_premises_llm import OnPremisesLLM
 import re
+from llm_api import LLMAPI
 
 class LLMHelper:
-    @staticmethod
-    def analyze_article(article: str) -> dict:
-        """
-        一次性丟給 LLM，取得摘要、情緒分析、命名實體辨識 (NER)
-        :param article: 新聞內文字串
-        :return: dict 格式結果
-        """
+    def __init__(self):
+        self.llm_option = "Gemma2:27b"
+        self.mode = "內部LLM"
+
+    def analyze_article(self, article: str) -> dict:
         prompt = (
             "請根據以下新聞內容，同時產生：\n"
             "1. 新聞摘要（200 字內）\n"
@@ -21,11 +18,10 @@ class LLMHelper:
             "以下為新聞內容：\n" + article
         )
 
-        llm_instance = OnPremisesLLM()
-        response_text = llm_instance.on_premises_llm("Taiwan-Llama3-16f", prompt)
+        llm = LLMAPI().get_llm(self.mode, self.llm_option)
+        response_text = llm.invoke(prompt)
         print("🧠 LLM 回傳原始結果：", response_text)
 
-        # JSON 解析與自動修復
         try:
             result = json.loads(response_text)
         except json.JSONDecodeError:
@@ -40,14 +36,7 @@ class LLMHelper:
                 result = {"summary": "無法生成摘要", "sentiment": "未知", "ner": "無"}
         return result
 
-    @staticmethod
-    def generate_summary(articles: list, analyses: list) -> str:
-        """
-        將多篇新聞和分析結果綜合交給 LLM，產出 300 字以內輿情摘要
-        :param articles: list of dicts，包含 title, publish_date, content
-        :param analyses: list of dicts，包含 summary, sentiment, ner
-        :return: LLM 產出摘要
-        """
+    def generate_summary(self, articles: list, analyses: list) -> str:
         combined_text = []
         for i, (article, analysis) in enumerate(zip(articles, analyses), start=1):
             block = (
@@ -65,19 +54,16 @@ class LLMHelper:
             "並說明輿論趨勢及潛在風險：\n\n" + "\n\n".join(combined_text)
         )
 
-        llm_instance = OnPremisesLLM()
-        response_text = llm_instance.on_premises_llm("Taiwan-Llama3-16f", prompt)
+        llm = LLMAPI().get_llm(self.mode, self.llm_option)
+        response_text = llm.invoke(prompt)
 
         if response_text.startswith("查詢失敗"):
             return "⚠️ 無法生成摘要，請稍後再試。"
 
         return response_text
 
-    @staticmethod
-    def query_to_keywords(query: str) -> str:
-        """
-        將自然語言問題轉換為 1-3 個搜尋用關鍵字
-        """
+    def query_to_keywords(self, query: str) -> str:
+        import streamlit as st
         prompt = f"""
         請根據以下使用者問題，產生 1-3 個最適合新聞搜尋的短關鍵字（逗號分隔），
         關鍵字應簡潔且代表主題重點。
@@ -87,14 +73,19 @@ class LLMHelper:
         使用者輸入: {query}
         """
 
-        llm_instance = OnPremisesLLM()
-        response_text = llm_instance.on_premises_llm("Taiwan-Llama3-16f", prompt)
+        llm = LLMAPI().get_llm(self.mode, self.llm_option)
+        response_text = llm.invoke(prompt)
         print(f"🔎 LLM 關鍵字回應: {response_text}")
-
         match = re.search(r"<qtkeywords>\s*(.*?)\s*<qtkeywords>", response_text)
         if match:
             keywords_str = match.group(1)
             keywords_list = [kw.strip() for kw in re.split(r"[，,]", keywords_str)]
-            return keywords_list[0]  # 回傳第一組關鍵字
+            print(f"✅ 關鍵字清單: {keywords_list}")
+            return keywords_list[0]
         else:
-            return ""
+            # Fallback：若無法匹配格式，嘗試用回傳文字第一行或前幾個字作為關鍵字
+            fallback_keyword = response_text.strip().split('\n')[0][:10]
+            print(f"⚠️ 使用 fallback keyword: {fallback_keyword}")
+            st.warning(f"⚠️ LLM 回傳原始結果：{response_text}")
+            return fallback_keyword or ""
+

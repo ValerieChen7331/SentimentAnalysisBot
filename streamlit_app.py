@@ -4,9 +4,6 @@ from llm_helper import LLMHelper
 from bnext_news_crawler import BnextNewsCrawler
 import datetime
 
-# 增加記憶功能，記得資料
-# 應僅回答與輿情分析相關的問題，對於無關問題應適當拒答。
-
 # 初始化 SQLite 資料庫
 db = NewsDatabase()
 
@@ -20,15 +17,14 @@ tab1, tab2 = st.tabs(["🔎 搜尋新聞", "📂 已儲存新聞"])
 with tab1:
     st.header("🔎 從『數位時代』自動搜尋並分析")
     crawler = BnextNewsCrawler(headless=True)
+    llm_helper = LLMHelper()  # ✅ 優化：只建立一次 LLMHelper 實例
 
-    # 使用 form 支援 Enter 觸發
     with st.form(key="search_form"):
         query = st.text_input("請輸入新聞主題或問題...").strip()
-        submit_button = st.form_submit_button("搜尋")  # 按 Enter 或按此按鈕都可以觸發
+        submit_button = st.form_submit_button("搜尋")
 
     if submit_button:
-        # 透過 LLM 抽取最適搜尋關鍵字
-        keyword = LLMHelper.query_to_keywords(query)
+        keyword = llm_helper.query_to_keywords(query)
         if not keyword:
             st.warning("⚠️ LLM 無法解析出有效關鍵字，請換個描述試試。")
         else:
@@ -40,24 +36,21 @@ with tab1:
             else:
                 all_details = []
 
-                # ✅ 第 1 步：先批次抓取詳細文章內容
                 with st.spinner(f"🔎 正在爬蟲「{keyword}」新聞..."):
                     for idx, article in enumerate(search_results, start=1):
                         detail = crawler.fetch_article_content(article['url'])
                         all_details.append(detail)
-                # ✅ 爬蟲完成後才提示「開始分析」
+
                 st.success(f"✅ 已成功抓取 {len(all_details)} 篇新聞")
 
                 all_analyses = []
 
-                # ✅ 第 2 步：逐篇進行 LLM 分析
                 for idx, detail in enumerate(all_details, start=1):
                     with st.spinner(f"🧠 分析第 {idx} 篇新聞中..."):
-                        analysis = LLMHelper.analyze_article(detail['content'])
-                        crawler.save_to_db(detail, analysis)  # 同步儲存至資料庫
+                        analysis = llm_helper.analyze_article(detail['content'])  # ✅ 改用共用物件
+                        crawler.save_to_db(detail, analysis)
                         all_analyses.append(analysis)
 
-                    # 顯示每篇新聞分析結果
                     with st.expander(f"【第 {idx} 篇】 {detail['publish_date']} - {detail['title']}"):
                         st.write(f"🔗 [前往原文]({detail['url']})")
                         st.write(detail['content'][:200] + "...")
@@ -65,9 +58,8 @@ with tab1:
                         st.write("**😊 情緒判斷**:", analysis["sentiment"])
                         st.write("**🏷️ 命名實體**:", analysis["ner"])
 
-                # ✅ 第 3 步：綜合多篇新聞產出輿情總結
                 with st.spinner("🧠 正在生成綜合輿情摘要..."):
-                    all_news_summary = LLMHelper.generate_summary(all_details, all_analyses)
+                    all_news_summary = llm_helper.generate_summary(all_details, all_analyses)  # ✅ 改用共用物件
                     st.subheader("📢 綜合輿情摘要")
                     st.write(all_news_summary)
 
