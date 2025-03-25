@@ -1,19 +1,17 @@
+# llm_api.py
 from dotenv import load_dotenv
 import os
 from langchain_openai import AzureChatOpenAI
 from langchain_community.llms import Ollama
 
-
+# LLM API 工具類別，根據模式提供內部或外部 LLM 實例
 class LLMAPI:
     @staticmethod
     def get_llm(mode, llm_option):
         """
         根據傳入的模式 (mode) 及模型選項 (llm_option)，
-        決定要呼叫內部 LLM 還是外部 Azure LLM。
-
-        :param mode: 字串，'內部LLM' 或其他 (預設為外部 LLM)
-        :param llm_option: 模型名稱選項
-        :return: LLM 實例
+        返回內部 Ollama 模型或外部 Azure OpenAI 模型實例。
+        輸入：mode (str)、llm_option (str)；輸出：LLM 實例。
         """
         if mode == '內部LLM':
             return LLMAPI._get_internal_llm(llm_option)
@@ -23,50 +21,45 @@ class LLMAPI:
     @staticmethod
     def _get_internal_llm(llm_option):
         """
-        建立並回傳內部 LLM (透過 Ollama 伺服器)
-
-        :param llm_option: 模型選項名稱 (key)
-        :return: Ollama LLM 實例
+        建立並回傳內部 LLM (透過 Ollama API) 實例。
+        輸入：llm_option (str) 模型代稱；輸出：Ollama LLM 實例。
         """
-        api_base = "http://10.5.61.81:11437"  # 內部 Ollama API 位址
+        api_base = "http://10.5.61.81:11437"  # 內部 Ollama API 伺服器位址
 
-        # 定義內部支援的模型清單 (字典)
+        # 可用的內部模型清單
         llm_model_names = {
-            # "Taiwan-llama3-f16": "cwchang/llama-3-taiwan-8b-instruct-dpo:f16",
             "Taiwan-Llama3-16f": "cwchang/llama-3-taiwan-8b-instruct:f16",
             "Gemma2:27b": "gemma2:27b-instruct-q5_0",
         }
 
-        # 根據傳入 llm_option 找對應模型
+        # 根據傳入模型選項取得實際模型名稱
         model = llm_model_names.get(llm_option)
         if not model:
             raise ValueError(f"無效的內部模型選項：{llm_option}")
 
-        # 回傳 Ollama LLM 實例，使用指定模型
+        # 使用 Ollama API 建立並回傳 LLM 實例
         llm = Ollama(base_url=api_base, model=model)
         return llm
 
     @staticmethod
     def _get_external_llm(llm_option):
         """
-        建立並回傳 Azure OpenAI 的 LLM 實例 (外部)
-
-        :param llm_option: Azure 上已部署的模型名稱 (deployment name)
-        :return: AzureChatOpenAI LLM 實例
+        建立並回傳外部 Azure OpenAI 的 LLM 實例。
+        輸入：llm_option (str) 為 Azure 上部署名稱；輸出：AzureChatOpenAI LLM 實例。
         """
         deployment_name = llm_option
-        load_dotenv()  # 載入 .env 檔案環境變數
+        load_dotenv()  # 載入 .env 設定檔
 
-        # 從環境變數取得 Azure OpenAI API 設定
+        # 從環境變數中取得 Azure API 設定參數
         api_key = os.getenv("AZURE_OPENAI_API_KEY")
         api_base = os.getenv("AZURE_OPENAI_ENDPOINT")
         api_version = os.getenv("AZURE_OPENAI_API_VERSION")
 
-        # 若有缺少必要的變數，丟出錯誤
+        # 確認必要參數存在
         if not all([api_key, api_base, api_version]):
             raise ValueError("缺少 API Key、Endpoint 或 API Version")
 
-        # 建立 AzureChatOpenAI LLM 實例
+        # 建立並回傳 AzureChatOpenAI LLM 實例
         llm = AzureChatOpenAI(
             openai_api_key=api_key,
             azure_endpoint=api_base,
@@ -77,11 +70,11 @@ class LLMAPI:
 
 
 if __name__ == "__main__":
-    # 範例：使用內部 LLM 測試
-    llm = LLMAPI.get_llm("內部LLM", "Taiwan-llama3-f16")
-    # 使用 Chat 格式 (list of dict) 呼叫模型
+    # 範例測試：呼叫內部 LLM 並回覆結果
+    llm = LLMAPI.get_llm("內部LLM", "Taiwan-Llama3-16f")
+    # 呼叫 LLM 進行範例對話
     result = llm.invoke([
         {"role": "user", "content": "我要如何設定自動寄送的警報信？"}
     ])
-    # 將結果印出
+    # 顯示回傳結果
     print(result)
