@@ -2,7 +2,15 @@ streamlit==1.32.2
 requests==2.31.0
 beautifulsoup4==4.12.3
 selenium==4.18.1
-webdriver-manager==4.14.0
+webdriver-manager==4.0.2
 urllib3==2.2.1
 pandas==2.2.1
 lxml==5.1.0
+
+# Langchain + OpenAI 相依套件
+langchain==0.3.21
+langchain-core==0.3.49
+langchain-community==0.3.20
+langchain-openai==0.3.11
+openai==1.69.0
+
